@@ -7,7 +7,9 @@ use clap::{Parser, Subcommand};
 
 mod benchmark;
 mod fibonacci;
+mod pqts_lean_sphincs;
 mod report;
+mod signature_batch;
 
 #[derive(Parser)]
 struct Cli {
@@ -43,6 +45,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Prove and verify an ordered batch of PQTS leanSPHINCS signatures from files.
+    PqtsLeanSphincs {
+        public: std::path::PathBuf,
+        signatures: std::path::PathBuf,
+    },
     /// Prove signatures and blobs, then verify the proof. At least one count must be nonzero.
     Aggregate {
         /// leanXMSS signatures to aggregate.
@@ -107,7 +114,7 @@ enum Command {
     },
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     leanvm_core::init_prover();
     let plan = bench::Plan::new(cli.repeat, cli.cooldown);
@@ -115,6 +122,9 @@ fn main() {
         bench::init_tracing();
     }
     match cli.command {
+        Command::PqtsLeanSphincs { public, signatures } => {
+            pqts_lean_sphincs::run(&public, &signatures, cli.log_inv_rate, plan)?;
+        }
         Command::Aggregate { xmss, sphincs, blobs } => {
             benchmark::run_aggregation(xmss, sphincs, blobs, cli.log_inv_rate, plan);
         }
@@ -143,4 +153,5 @@ fn main() {
             fibonacci::run_fibonacci(n, cli.log_inv_rate, plan);
         }
     }
+    Ok(())
 }

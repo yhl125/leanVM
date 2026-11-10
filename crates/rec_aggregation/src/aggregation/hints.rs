@@ -40,7 +40,7 @@ const SP_LANE_END: usize = 32 + 8;
 const _: () = assert!(lean_sphincs::DIGEST_BYTES > 32 && lean_sphincs::DIGEST_BYTES <= SP_LANE_END);
 
 /// Named hint entries for a single sub-proof, ordered within each stream.
-pub(super) type SubHints = Vec<(&'static str, Vec<F192>)>;
+pub(crate) type SubHints = Vec<(&'static str, Vec<F192>)>;
 
 /// An edit to a node's hints: how a test hands the guest a witness the honest host
 /// would not.

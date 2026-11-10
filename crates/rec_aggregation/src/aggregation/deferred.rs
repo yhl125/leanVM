@@ -27,8 +27,8 @@ const _: () = assert!(leanvm_core::leaf::N_TUPLE_BITS == leanvm_core::leaf::N_BY
 /// rather than the claim anyone checks.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct DeferredClaim {
-    pub(super) bytecode_point: Vec<F192>,
-    pub(super) bytecode_value: F192,
+    pub(crate) bytecode_point: Vec<F192>,
+    pub(crate) bytecode_value: F192,
 }
 
 impl DeferredClaim {
@@ -63,14 +63,23 @@ impl DeferredClaim {
         bytecode_point: Vec<F192>,
         bytecode_at: impl FnOnce(&[F192]) -> F192,
     ) -> Result<Self, AggregateVerifyError> {
-        if bytecode_point.len() != bytecode_vars() {
+        Self::evaluate_for(bytecode_point, bytecode_vars(), stacked_bytecode()[0], bytecode_at)
+    }
+
+    pub(crate) fn evaluate_for(
+        bytecode_point: Vec<F192>,
+        variables: usize,
+        first: F64,
+        bytecode_at: impl FnOnce(&[F192]) -> F192,
+    ) -> Result<Self, AggregateVerifyError> {
+        if bytecode_point.len() != variables {
             return Err(AggregateVerifyError::MalformedClaim);
         }
         // Every leaf defers the all-zeros point, where the bytecode polynomial is
         // just its table's first entry. Worth special-casing: the general path is
         // a pass over 2^23 entries, and a leaf is the aggregate people verify most.
         let bytecode_value = if bytecode_point.iter().all(|x| *x == F192::ZERO) {
-            F192::from(stacked_bytecode()[0])
+            F192::from(first)
         } else {
             bytecode_at(&bytecode_point)
         };
@@ -81,7 +90,7 @@ impl DeferredClaim {
     }
 
     /// The cells the statement digest absorbs, in the guest's `defer_stmt` order.
-    pub(super) fn cells(&self) -> Vec<F192> {
+    pub(crate) fn cells(&self) -> Vec<F192> {
         let mut cells = self.bytecode_point.clone();
         cells.push(self.bytecode_value);
         cells
@@ -91,7 +100,7 @@ impl DeferredClaim {
 /// The deferred-claim data the guest binds to the outer public input: the outer
 /// verifier checks each claim natively (`doc/leanvm/main.tex` §Deferred evaluation claims).
 /// A child's fresh claim is batched with its carried one at every child count, one included.
-pub(super) struct DeferredSubproof {
+pub(crate) struct DeferredSubproof {
     pub(super) public_input: [F192; 2],
     pub(super) bytecode_point: Vec<F192>,
     pub(super) bytecode_value: F192,
@@ -118,22 +127,23 @@ pub(super) fn stacked_bytecode() -> &'static [F64] {
 /// structurally zero.
 fn bytecode_rows() -> Range<usize> {
     static ROWS: std::sync::OnceLock<Range<usize>> = std::sync::OnceLock::new();
-    ROWS.get_or_init(|| {
-        let rows = stacked_bytecode().as_chunks::<BLOCK>().0;
-        let per_slot = rows.len() >> leanvm_core::leaf::N_BYTECODE_SELECTORS;
-        assert!(per_slot >= GROUP, "a slot is whole groups of rows");
-        let live = |s: &usize| {
-            rows[s * per_slot..(s + 1) * per_slot]
-                .iter()
-                .flatten()
-                .any(|v| *v != F64::ZERO)
-        };
-        let slots = || 0..1 << leanvm_core::leaf::N_BYTECODE_SELECTORS;
-        let start = slots().find(live).expect("the bytecode is not all zero");
-        let end = slots().rfind(live).expect("the bytecode is not all zero") + 1;
-        start * per_slot..end * per_slot
-    })
-    .clone()
+    ROWS.get_or_init(|| bytecode_rows_for(stacked_bytecode())).clone()
+}
+
+pub(crate) fn bytecode_rows_for(table: &[F64]) -> Range<usize> {
+    let rows = table.as_chunks::<BLOCK>().0;
+    let per_slot = rows.len() >> leanvm_core::leaf::N_BYTECODE_SELECTORS;
+    assert!(per_slot >= GROUP, "a slot is whole groups of rows");
+    let live = |s: &usize| {
+        rows[s * per_slot..(s + 1) * per_slot]
+            .iter()
+            .flatten()
+            .any(|v| *v != F64::ZERO)
+    };
+    let slots = || 0..1 << leanvm_core::leaf::N_BYTECODE_SELECTORS;
+    let start = slots().find(live).expect("the bytecode is not all zero");
+    let end = slots().rfind(live).expect("the bytecode is not all zero") + 1;
+    start * per_slot..end * per_slot
 }
 
 /// Low row variables of the stacked bytecode, which the batch binds first.
@@ -147,8 +157,12 @@ const GROUP: usize = 8;
 /// `eq(point, ·)` is a product of a factor on the low variables and one on the rest, so the batch's low rounds run
 /// on these, and a point's value is read off its own ([`bytecode_value`]).
 pub(super) fn bytecode_sums(points: &[Vec<F192>]) -> Vec<Vec<F192>> {
+    bytecode_sums_for(stacked_bytecode(), bytecode_rows(), points)
+}
+
+pub(crate) fn bytecode_sums_for(table: &[F64], live: Range<usize>, points: &[Vec<F192>]) -> Vec<Vec<F192>> {
     let _span = tracing::info_span!("Bytecode sums").entered();
-    let (rows, live) = (stacked_bytecode().as_chunks::<BLOCK>().0, bytecode_rows());
+    let rows = table.as_chunks::<BLOCK>().0;
     points
         .iter()
         .map(|point| {
@@ -183,7 +197,7 @@ pub(super) fn bytecode_sums(points: &[Vec<F192>]) -> Vec<Vec<F192>> {
 }
 
 /// The stacked bytecode at `point`, from its [`bytecode_sums`]: what [`mle_eval_par`] gives over the whole table.
-pub(super) fn bytecode_value(sums: &[F192], point: &[F192]) -> F192 {
+pub(crate) fn bytecode_value(sums: &[F192], point: &[F192]) -> F192 {
     eq_table(&point[..BLOCK_VARS])
         .iter()
         .zip(sums)
@@ -245,11 +259,21 @@ fn absorb_round(
 pub(super) fn aggregate_deferred_claims(
     subproofs: &[DeferredSubproof],
     carried_claims: &[&DeferredClaim],
+    sums: Vec<Vec<F192>>,
+) -> (SubHints, DeferredClaim) {
+    aggregate_deferred_claims_for(subproofs, carried_claims, sums, stacked_bytecode(), bytecode_rows())
+}
+
+pub(crate) fn aggregate_deferred_claims_for(
+    subproofs: &[DeferredSubproof],
+    carried_claims: &[&DeferredClaim],
     mut sums: Vec<Vec<F192>>,
+    table: &[F64],
+    live: Range<usize>,
 ) -> (SubHints, DeferredClaim) {
     let child_count = subproofs.len();
     assert_eq!(child_count, carried_claims.len(), "one carried claim per child");
-    let kbcv = bytecode_vars();
+    let kbcv = table.len().ilog2() as usize;
 
     // The count and each child's words are padded with zeros to whole rates, so the
     // guest's loop over the children finds every child starting the same way.
@@ -318,7 +342,7 @@ pub(super) fn aggregate_deferred_claims(
     }
     // The rest: every row against the low challenges, zero outside the populated ones, and each claim's `eq` on
     // the rows, scaled by what its low rows left.
-    let (rows, live) = (stacked_bytecode().as_chunks::<BLOCK>().0, bytecode_rows());
+    let rows = table.as_chunks::<BLOCK>().0;
     let low_eq = packed_eq(&r_bc);
     let mut bt = vec![F192::ZERO; rows.len()];
     parallel::fill(&mut bt[live.clone()], |i| {

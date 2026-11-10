@@ -19,7 +19,7 @@ const CLAIM_BIG: usize = CLAIM_GROUP * BIG_GROUPS;
 /// identity and range checks pin all three, so this only has to agree with them
 /// (`list_split` in the guest). A list is never empty here: both claim lists are
 /// guarded at the call, since the guest hashes an empty one without a split at all.
-pub(super) fn list_split(n: usize) -> Vec<F192> {
+pub(crate) fn list_split(n: usize) -> Vec<F192> {
     assert!(n > 0, "an empty list has no split");
     let rest = n % CLAIM_BIG;
     vec![

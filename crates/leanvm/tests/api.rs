@@ -100,3 +100,36 @@ fn public_api_end_to_end() {
     dropped.verify().unwrap();
     assert_eq!(dropped.claims(), &without_blobs);
 }
+
+#[test]
+#[ignore = "generates a signature proof"]
+fn pqts_lean_sphincs_batch() {
+    use leanvm::pqts_lean_sphincs::{Claim, Signature, SignatureError, batch};
+    assert_eq!(Claim::from_bytes(&[], &[0; 32]), Err(SignatureError::PublicKeyLength));
+    let claim = Claim::from_bytes(
+        include_bytes!("../../signatures/tests/pqts_lean_sphincs/kat-pk.bin"),
+        include_bytes!("../../signatures/tests/pqts_lean_sphincs/kat-message.bin"),
+    )
+    .unwrap();
+    let signature = Signature::from_bytes(include_bytes!(
+        "../../signatures/tests/pqts_lean_sphincs/kat-signature.bin"
+    ))
+    .unwrap();
+    let public = include_bytes!("../../signatures/tests/pqts_lean_sphincs/kat-public.bin");
+    let mut claims = batch::public_from_bytes(public).unwrap();
+    assert_eq!(claims, [claim]);
+    assert_eq!(batch::public_to_bytes(&claims).unwrap().as_slice(), public.as_slice());
+    let (proof, _) = batch::prove(&claims, &[signature]).unwrap();
+    let bytes = proof.to_bytes().unwrap();
+    assert!(batch::Proof::from_bytes(&bytes[..bytes.len() - 1]).is_err());
+    let mut trailing = bytes.clone();
+    trailing.push(0);
+    assert!(batch::Proof::from_bytes(&trailing).is_err());
+    let mut wrong_version = bytes.clone();
+    wrong_version[0] ^= 1;
+    assert!(batch::Proof::from_bytes(&wrong_version).is_err());
+    let proof = batch::Proof::from_bytes(&bytes).unwrap();
+    proof.verify(&claims).unwrap();
+    claims[0].message[0] ^= 1;
+    assert!(proof.verify(&claims).is_err());
+}

@@ -61,7 +61,7 @@ pub(super) fn col_groups(sources: &[(usize, usize)]) -> Vec<usize> {
 /// `verifier` crate read out of the child's `proof`, and that proof's Merkle
 /// paths, whose positions and sizes its replay pinned (zero hand-mirroring
 /// drift). Nothing here says the child verifies: the guest's run does.
-pub(super) fn gen_verify(
+pub(crate) fn gen_verify(
     program: &Program,
     public_input: [F192; 2],
     proof: &leanvm_core::cpu::Proof,
@@ -256,7 +256,7 @@ pub(super) fn gen_verify(
 
 /// The stacked sizes `2^mu` a child may commit, `mu` in `MU_MIN..=MU_MAX`: the guest
 /// carries one set of opening tables per size and rate.
-pub(super) const MU_MIN: usize = 22;
+pub(crate) const MU_MIN: usize = 22;
 pub(super) const MU_MAX: usize = leanvm_core::pcs::MAX_MU;
 
 const _: () = assert!(MU_MIN >= leanvm_core::pcs::MIN_MU);

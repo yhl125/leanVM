@@ -18,7 +18,7 @@ pub enum AggregateVerifyError {
 
 /// Why a proof did not verify. Opaque: its message is for debugging.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SnarkVerifyError(pub(super) verifier::VerifierError);
+pub struct SnarkVerifyError(pub(crate) verifier::VerifierError);
 
 impl std::fmt::Display for SnarkVerifyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

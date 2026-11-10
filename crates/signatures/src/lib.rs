@@ -47,3 +47,5 @@ fn path_fold(
 fn truncate(output: [u8; 32]) -> [u8; N] {
     output[..N].try_into().unwrap()
 }
+
+pub mod pqts_lean_sphincs;

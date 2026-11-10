@@ -78,3 +78,11 @@ pub const MAX_RECURSIONS: usize = 16;
 /// The guest checks it against a COMPILE-TIME bound, so raising it past
 /// `2^MIN_LOG_MEM` fails the build rather than weakening the index bound.
 pub const MAX_KEYS: usize = 1 << 16;
+
+// Shared by the PQTS guest, whose bytecode and ordered statement are separate.
+pub(crate) use child::{MU_MIN, gen_verify};
+pub(crate) use deferred::{
+    DeferredClaim, aggregate_deferred_claims_for, bytecode_rows_for, bytecode_sums_for, bytecode_value,
+};
+pub(crate) use placeholders::placeholder_map;
+pub(crate) use statement::list_split;

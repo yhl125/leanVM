@@ -46,3 +46,11 @@ pub fn setup() {
     leanvm_core::init_prover();
     rec_aggregation::warm_up();
 }
+
+/// EthLib PQTS leanSPHINCS at commit 4b3c7121; not the current upstream leanSPHINCS scheme.
+pub mod pqts_lean_sphincs {
+    pub use rec_aggregation::pqts_lean_sphincs::{Claim, Error, Proof, Signature, batch, prove};
+    pub use signatures::pqts_lean_sphincs::{
+        Error as SignatureError, MESSAGE_BYTES, PUBLIC_KEY_BYTES, SIGNATURE_BYTES, verify as verify_signature,
+    };
+}
