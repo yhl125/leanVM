@@ -56,6 +56,12 @@ leanVM is designed for security:
 
 **leanVM is not (yet) production ready.**
 
+## Additional signature profile
+
+This fork also provides [`slh_dsa_shake_128s`](doc/slh_dsa_shake_128s.md), pure FIPS 205 SLH-DSA-SHAKE-128s. It accepts externally supplied public claims and raw signatures. Its API, fixtures and CLI command are separate from upstream `lean_sphincs`.
+
+This guest is a research addition and is not covered by the upstream Lean statements. The benchmark results below are upstream results; they are not measurements of this addition.
+
 ## benchmarks
 
 **machine**: M4 Max MacBook Pro (12 performance cores, 4 efficiency cores, 48GB RAM, CPU only, i.e. no metal GPU)

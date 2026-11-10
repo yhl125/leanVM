@@ -8,6 +8,8 @@ use clap::{Parser, Subcommand};
 mod benchmark;
 mod fibonacci;
 mod report;
+mod signature_batch;
+mod slh_dsa_shake_128s;
 
 #[derive(Parser)]
 struct Cli {
@@ -43,6 +45,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Prove and verify pure SLH-DSA-SHAKE-128s signatures from files.
+    #[command(name = "slh-dsa-shake-128s")]
+    SlhDsaShake128s {
+        public: std::path::PathBuf,
+        signatures: std::path::PathBuf,
+    },
     /// Prove signatures and blobs, then verify the proof. At least one count must be nonzero.
     Aggregate {
         /// leanXMSS signatures to aggregate.
@@ -107,7 +115,7 @@ enum Command {
     },
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     leanvm_core::init_prover();
     let plan = bench::Plan::new(cli.repeat, cli.cooldown);
@@ -115,6 +123,9 @@ fn main() {
         bench::init_tracing();
     }
     match cli.command {
+        Command::SlhDsaShake128s { public, signatures } => {
+            slh_dsa_shake_128s::run(&public, &signatures, cli.log_inv_rate, plan)?;
+        }
         Command::Aggregate { xmss, sphincs, blobs } => {
             benchmark::run_aggregation(xmss, sphincs, blobs, cli.log_inv_rate, plan);
         }
@@ -143,4 +154,5 @@ fn main() {
             fibonacci::run_fibonacci(n, cli.log_inv_rate, plan);
         }
     }
+    Ok(())
 }

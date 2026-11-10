@@ -46,3 +46,11 @@ pub fn setup() {
     leanvm_core::init_prover();
     rec_aggregation::warm_up();
 }
+
+/// Pure FIPS 205 SLH-DSA-SHAKE-128s, with message and context supplied by the verifier.
+pub mod slh_dsa_shake_128s {
+    pub use rec_aggregation::slh_dsa_shake_128s::{Claim, Error, Proof, Signature, batch, prove, warm_up};
+    pub use signatures::slh_dsa_shake_128s::{
+        Error as SignatureError, MAX_MESSAGE_BYTES, PUBLIC_KEY_BYTES, SIGNATURE_BYTES, verify as verify_signature,
+    };
+}
